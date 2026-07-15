@@ -27,9 +27,9 @@ def get_wb_data(country, indicator):
         response = requests.get(url, timeout=10)
         data = response.json()[1]
         vals = [float(x['value']) for x in data if x['value'] is not None and float(x['value']) != 0]
-        return vals if len(vals) > 1 else [0.02, 0.02]
+        return vals if len(vals) > 1 else [2.0, 2.0]  # Standard default representation as raw percentage (2.0%)
     except Exception:
-        return [0.02, 0.02]
+        return [2.0, 2.0]
 
 def build_engine():
     print(f"--- GENERATING CENTRALIZED CACHE: {CACHE_FILE} ---")
@@ -41,14 +41,15 @@ def build_engine():
         inf_s = get_wb_data(code, "FP.CPI.TOTL.ZG")
         labor = LABOR_ESTIMATES.get(code, 0.60)
         
-        # 2. Advanced Simulation Logic
-        velocity = float(np.real((gdp_s[-1] / gdp_s[0])**(1/len(gdp_s)) - 1))
+        # 2. Corrected Simulation Logic
+        # Convert World Bank raw percentage values (e.g., 3.5) into true decimals (0.035) via arithmetic mean
+        velocity = float(np.mean(gdp_s)) / 100
         velocity = max(min(velocity, 0.07), -0.02)
         
         shock = np.random.normal(0, 0.005) 
         stoch_vel = max(min(velocity + shock, 0.07), -0.02)
         
-        inf_avg = float(np.real(np.mean(inf_s))) / 100
+        inf_avg = float(np.mean(inf_s)) / 100
         infra = EODB_SCORES.get(code, 0.5)
         
         # Weighted Scoring (The "Consultant's Mix")
