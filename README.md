@@ -9,12 +9,15 @@ A decision-support tool that automates the evaluation of global market trends us
 ---
 
 ## How it works
+
 The `RISK_ADJ_SCORE` for each market is derived from four weighted factors:
 
-  - GDP growth (40%) Adjusted with a Gaussian noise term (σ = 0.005) to account for macroeconomic stochasticity and prevent over-optimistic projections.
-  - Labor capacity (30%)
-  - Infrastructure (20%)
-  - Inflation volatility (10%).
+- **GDP growth (40%)** calculated from live World Bank data using a weighted historical average.
+- **Labor capacity (30%)** based on labour force participation estimates.
+- **Infrastructure (20%)** using structural market readiness scores.
+- **Inflation risk (10%)** combining historical inflation and its volatility.
+
+Economic projections (2035–2050) are generated using Monte Carlo simulation with Gaussian stochastic shocks (σ = 0.005), providing more robust long-term forecasts while accounting for macroeconomic uncertainty.
  
 ---
 
