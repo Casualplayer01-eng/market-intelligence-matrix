@@ -29,21 +29,48 @@ Economic projections (2035–2050) are generated using Gaussian stochastic shock
   
 ---
 
+---
+
+
+
 ## Project Structure
 
-├── .github/workflows/       # CI/CD pipeline for automated data updates
-├── app.py                   # Streamlit dashboard
-├── main.py                  # ETL engine and scoring logic
-├── market_engine_cache.csv  # Processed market data (auto-updated)
-└── requirements.txt         # Dependencies
 
+
+```
+
+├── .github/workflows/      # CI/CD pipeline for automated data updates
+
+├── app.py                  # Streamlit dashboard
+
+├── main.py                 # ETL engine and scoring logic
+
+├── market_engine_cache.csv # Processed market data (auto-updated)
+
+└── requirements.txt        # Dependencies
+```
 
 ---
 
+
+
 ## How to set it up locally
 
-```bash
+
+```
+bash
+
 git clone [your-repo-url]
+
 pip install -r requirements.txt
+
 python main.py        # updates the cache
+
 streamlit run app.py  # launch the dashboard
+
+```
+
+
+
+--- 
+
