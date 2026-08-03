@@ -65,6 +65,7 @@ def create_robust_session() -> requests.Session:
         total=5,
         backoff_factor=1.0,  # Delays: 1s, 2s, 4s, 8s, 16s
         status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"],
         raise_on_status=False
     )
     adapter = HTTPAdapter(max_retries=retries)
@@ -180,6 +181,7 @@ def build_engine() -> pd.DataFrame:
     print("--- STARTING WORLD BANK ETL ENGINE ---")
     session = create_robust_session()
     cached_records = load_cached_data()
+    today_str = datetime.datetime.now().strftime("%Y-%m-%d")
 
     country_data: List[Dict[str, Any]] = []
     
@@ -205,7 +207,8 @@ def build_engine() -> pd.DataFrame:
                 "Infrastructure": infra,
                 "Inflation_Avg": inf_avg,
                 "Inflation_Vol": inf_vol,
-                "Inflation_Risk": inf_risk
+                "Inflation_Risk": inf_risk,
+                "Last_Updated": today_str
             })
             live_countries.append(code)
 
@@ -214,12 +217,25 @@ def build_engine() -> pd.DataFrame:
             if code in cached_records:
                 logger.info(f"LOG: Using cached values from {CACHE_FILE} for country: {code}")
                 c_row = cached_records[code]
+                
+                gdp = c_row.get("GDP_Growth", 0.02)
+                labor = c_row.get("Labor_Participation", LABOR_ESTIMATES.get(code, 0.60))
+                infra = c_row.get("Infrastructure", EODB_SCORES.get(code, 0.50))
+                cached_score = c_row.get("RISK_ADJ_SCORE")
+
+                # Reconstruct Inflation_Risk algebraically from cached score if present
+                if cached_score is not None:
+                    reconstructed_inf_risk = ((gdp * 0.4) + (labor * 0.3) + (infra * 0.2) - cached_score) / 0.1
+                else:
+                    reconstructed_inf_risk = 0.02
+
                 country_data.append({
                     "country": code,
-                    "GDP_Growth": c_row.get("GDP_Growth", 0.02),
-                    "Labor_Participation": c_row.get("Labor_Participation", LABOR_ESTIMATES.get(code, 0.60)),
-                    "Infrastructure": c_row.get("Infrastructure", EODB_SCORES.get(code, 0.50)),
-                    "Inflation_Risk": c_row.get("Inflation_Risk", 0.02)
+                    "GDP_Growth": gdp,
+                    "Labor_Participation": labor,
+                    "Infrastructure": infra,
+                    "Inflation_Risk": reconstructed_inf_risk,
+                    "Last_Updated": str(c_row.get("Last_Updated", today_str))
                 })
                 cached_countries.append(code)
             else:
@@ -230,10 +246,6 @@ def build_engine() -> pd.DataFrame:
         raise RuntimeError("Pipeline failed: Unable to obtain data from either live API or cache.")
 
     df = pd.DataFrame(country_data)
-
-    # Ensure Inflation_Risk is calculated if missing from fallback
-    if "Inflation_Risk" not in df.columns:
-        df["Inflation_Risk"] = df["Inflation_Avg"] + (0.5 * df["Inflation_Vol"])
 
     # Original Weighted Scoring Formula
     df["RISK_ADJ_SCORE"] = (
@@ -252,14 +264,12 @@ def build_engine() -> pd.DataFrame:
     proj_df = pd.DataFrame(proj_rows)
     df = pd.concat([df, proj_df], axis=1)
 
-    # Recommendations using pd.qcut()
+    # Robust Quantile Recommendations using rank tie-breaker
     df["Recommendation"] = pd.qcut(
-        df["RISK_ADJ_SCORE"], 
+        df["RISK_ADJ_SCORE"].rank(method="first"), 
         q=3, 
         labels=["Avoid", "Watch", "Target"]
     )
-
-    df["Last_Updated"] = datetime.datetime.now().strftime("%Y-%m-%d")
 
     # Final Schema Match
     schema_cols = [
