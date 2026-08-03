@@ -57,8 +57,7 @@ Economic projections (2035–2050) are generated using Gaussian stochastic shock
 ## How to set it up locally
 
 
-```
-bash
+```bash
 
 git clone [your-repo-url]
 
